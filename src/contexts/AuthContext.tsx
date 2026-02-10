@@ -1,7 +1,11 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { CustomAuthService, type CustomAuthUser } from '../lib/custom-auth';
 import type { UserRole } from '../lib/database.types';
+
+const USE_CUSTOM_AUTH = true;
+const SESSION_TOKEN_KEY = 'commerce_os_session_token';
 
 interface UserProfile {
   id: string;
@@ -13,9 +17,9 @@ interface UserProfile {
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: User | CustomAuthUser | null;
   profile: UserProfile | null;
-  session: Session | null;
+  session: Session | string | null;
   loading: boolean;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -30,12 +34,44 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | CustomAuthUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<Session | string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (USE_CUSTOM_AUTH) {
+      initializeCustomAuth();
+    } else {
+      initializeSupabaseAuth();
+    }
+  }, []);
+
+  const initializeCustomAuth = async () => {
+    try {
+      const token = localStorage.getItem(SESSION_TOKEN_KEY);
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      const validatedUser = await CustomAuthService.validateSession(token);
+      if (!validatedUser) {
+        localStorage.removeItem(SESSION_TOKEN_KEY);
+        setLoading(false);
+        return;
+      }
+
+      setUser(validatedUser);
+      setSession(token);
+      await loadUserProfileFromCustomAuth(validatedUser.id);
+    } catch (error) {
+      console.error('Error initializing custom auth:', error);
+      setLoading(false);
+    }
+  };
+
+  const initializeSupabaseAuth = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -62,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  };
 
   const loadUserProfile = async (userId: string) => {
     try {
@@ -82,29 +118,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName?: string) => {
+  const loadUserProfileFromCustomAuth = async (userId: string) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
 
       if (error) throw error;
+      setProfile(data);
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      setProfile(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: data.user.id,
-            email: data.user.email!,
-            full_name: fullName || null,
-            role: 'retail',
-          });
+  const signUp = async (email: string, password: string, fullName?: string) => {
+    try {
+      if (USE_CUSTOM_AUTH) {
+        const result = await CustomAuthService.signup({
+          email,
+          password,
+          fullName,
+        });
 
-        if (profileError) throw profileError;
+        if (!result) {
+          throw new Error('Signup failed');
+        }
+
+        localStorage.setItem(SESSION_TOKEN_KEY, result.session.token);
+        setUser(result.user);
+        setSession(result.session.token);
+        await loadUserProfileFromCustomAuth(result.user.id);
+
+        return { error: null };
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+
+        if (data.user) {
+          const { error: profileError } = await supabase
+            .from('user_profiles')
+            .insert({
+              id: data.user.id,
+              email: data.user.email!,
+              full_name: fullName || null,
+              role: 'retail',
+            });
+
+          if (profileError) throw profileError;
+        }
+
+        return { error: null };
       }
-
-      return { error: null };
     } catch (error) {
       return { error: error as Error };
     }
@@ -112,13 +185,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      if (USE_CUSTOM_AUTH) {
+        const result = await CustomAuthService.login({ email, password });
 
-      if (error) throw error;
-      return { error: null };
+        if (!result) {
+          throw new Error('Invalid credentials');
+        }
+
+        localStorage.setItem(SESSION_TOKEN_KEY, result.session.token);
+        setUser(result.user);
+        setSession(result.session.token);
+        await loadUserProfileFromCustomAuth(result.user.id);
+
+        return { error: null };
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+        return { error: null };
+      }
     } catch (error) {
       return { error: error as Error };
     }
@@ -126,9 +214,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      return { error: null };
+      if (USE_CUSTOM_AUTH) {
+        const token = localStorage.getItem(SESSION_TOKEN_KEY);
+        if (token) {
+          await CustomAuthService.logout(token);
+          localStorage.removeItem(SESSION_TOKEN_KEY);
+        }
+        setUser(null);
+        setProfile(null);
+        setSession(null);
+        return { error: null };
+      } else {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        return { error: null };
+      }
     } catch (error) {
       return { error: error as Error };
     }

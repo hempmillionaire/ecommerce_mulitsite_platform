@@ -10,6 +10,7 @@ import { AdminDashboard } from './components/admin/AdminDashboard';
 import { ProductManagement } from './components/admin/ProductManagement';
 import { OrderManagement } from './components/admin/OrderManagement';
 import { VendorManagement } from './components/admin/VendorManagement';
+import { SiteManagement } from './components/admin/SiteManagement';
 import { RetailModeView } from './components/storefront/RetailModeView';
 import { WholesaleModeView } from './components/storefront/WholesaleModeView';
 import { DealsModeView } from './components/storefront/DealsModeView';
@@ -103,12 +104,7 @@ function AppContent() {
         {adminView === 'products' && <ProductManagement />}
         {adminView === 'orders' && <OrderManagement />}
         {adminView === 'vendors' && <VendorManagement />}
-        {adminView === 'sites' && (
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Site Management</h2>
-            <p className="text-gray-600">Multi-site management interface coming soon</p>
-          </div>
-        )}
+        {adminView === 'sites' && <SiteManagement />}
         {adminView === 'promotions' && (
           <div className="text-center py-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Promotions Management</h2>

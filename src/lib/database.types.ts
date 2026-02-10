@@ -336,6 +336,126 @@ export interface Database {
           updated_at?: string;
         };
       };
+      site_domains: {
+        Row: {
+          id: string;
+          site_id: string;
+          domain: string;
+          is_primary: boolean;
+          ssl_enabled: boolean;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          site_id: string;
+          domain: string;
+          is_primary?: boolean;
+          ssl_enabled?: boolean;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          site_id?: string;
+          domain?: string;
+          is_primary?: boolean;
+          ssl_enabled?: boolean;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      auth_users: {
+        Row: {
+          id: string;
+          email: string;
+          email_verified: boolean;
+          email_verified_at: string | null;
+          full_name: string | null;
+          status: string;
+          supabase_user_id: string | null;
+          last_login_at: string | null;
+          last_login_ip: string | null;
+          login_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          email_verified?: boolean;
+          email_verified_at?: string | null;
+          full_name?: string | null;
+          status?: string;
+          supabase_user_id?: string | null;
+          last_login_at?: string | null;
+          last_login_ip?: string | null;
+          login_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          email_verified?: boolean;
+          email_verified_at?: string | null;
+          full_name?: string | null;
+          status?: string;
+          supabase_user_id?: string | null;
+          last_login_at?: string | null;
+          last_login_ip?: string | null;
+          login_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      auth_role_assignments: {
+        Row: {
+          id: string;
+          user_id: string;
+          role: UserRole;
+          assigned_by: string | null;
+          assigned_at: string;
+          assigned_reason: string | null;
+          revoked: boolean;
+          revoked_by: string | null;
+          revoked_at: string | null;
+          revoked_reason: string | null;
+          is_current: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          role: UserRole;
+          assigned_by?: string | null;
+          assigned_at?: string;
+          assigned_reason?: string | null;
+          revoked?: boolean;
+          revoked_by?: string | null;
+          revoked_at?: string | null;
+          revoked_reason?: string | null;
+          is_current?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          role?: UserRole;
+          assigned_by?: string | null;
+          assigned_at?: string;
+          assigned_reason?: string | null;
+          revoked?: boolean;
+          revoked_by?: string | null;
+          revoked_at?: string | null;
+          revoked_reason?: string | null;
+          is_current?: boolean;
+          created_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
